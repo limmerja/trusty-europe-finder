@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Shield, MapPin, FileCheck, Users } from "lucide-react";
+import { Search, Heart, MapPin, FileCheck, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const Index = () => {
@@ -71,7 +71,7 @@ const Index = () => {
 
   const features = [
     {
-      icon: Shield,
+      icon: Heart,
       title: "Privacy First",
       description: "GDPR compliant European alternatives prioritizing your data privacy"
     },
@@ -103,9 +103,9 @@ const Index = () => {
             <div className="mb-8">
               <div className="inline-flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-primary-foreground" />
+                  <Heart className="w-6 h-6 text-primary-foreground" />
                 </div>
-                <h1 className="text-2xl font-bold text-foreground">
+                <h1 className="text-3xl font-bold text-foreground">
                   bestfor
                   <span className="relative">
                     <span className="text-primary">eu</span>
