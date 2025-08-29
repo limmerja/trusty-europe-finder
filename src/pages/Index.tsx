@@ -6,6 +6,7 @@ import { Search, Layers, MapPin, FileCheck, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const Index = () => {
+  console.log("Index component rendering...");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
