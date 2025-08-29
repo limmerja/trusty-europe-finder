@@ -45,6 +45,7 @@ interface ScoringData {
       control: number;
       governance: number;
       "lock-in-risk": number;
+      "lock-in-risk": number;
     };
     dimensions: {
       [key: string]: {
