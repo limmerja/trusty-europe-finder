@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, Loader2, Shield, Server, FileCheck, Gavel, AlertTriangle } from "lucide-react";
@@ -16,6 +16,7 @@ interface AlternativeItem {
 const ComparisonLoading = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
   const [alternatives, setAlternatives] = useState<AlternativeItem[]>([]);
@@ -107,12 +108,19 @@ const ComparisonLoading = () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
         setProgress(100);
 
-        // Navigate back to results with comparison data
+        // Navigate to comparison results page with data
+        const originalData = location.state?.originalData || {
+          name: query,
+          score: 50,
+          criteriaScores: [],
+          type: "Current Solution"
+        };
+
         setTimeout(() => {
-          navigate(`/results?q=${query}`, { 
+          navigate(`/comparison-results?q=${query}`, { 
             state: { 
-              showComparison: true, 
-              comparisonData: scoredAlternatives 
+              comparisonData: scoredAlternatives,
+              originalData
             } 
           });
         }, 500);

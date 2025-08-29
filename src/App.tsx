@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import SearchResults from "./pages/SearchResults";
 import LoadingPage from "./pages/LoadingPage";
 import ComparisonLoading from "./pages/ComparisonLoading";
+import ComparisonResults from "./pages/ComparisonResults";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/results" element={<SearchResults />} />
             <Route path="/loading" element={<LoadingPage />} />
             <Route path="/comparison-loading" element={<ComparisonLoading />} />
+            <Route path="/comparison-results" element={<ComparisonResults />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

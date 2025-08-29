@@ -258,8 +258,17 @@ const SearchResults = () => {
   };
 
   const fetchComparison = async () => {
-    // Navigate to comparison loading page
-    navigate(`/comparison-loading?q=${query}`);
+    // Navigate to comparison loading page with original company data
+    navigate(`/comparison-loading?q=${query}`, {
+      state: {
+        originalData: {
+          name: companyData.name,
+          score: companyData.score,
+          criteriaScores: companyData.criteriaScores,
+          type: "Current Solution"
+        }
+      }
+    });
   };
 
   if (isLoading) {
