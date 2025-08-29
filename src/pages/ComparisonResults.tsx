@@ -26,6 +26,25 @@ interface CompanyComparison {
   links?: string[];
   score: number;
   criteriaScores: CriteriaScore[];
+  description?: string;
+}
+
+interface AlternativeResponse {
+  name: string;
+  description: string;
+  website: string;
+}
+
+interface SovereigntyResponse {
+  company: string;
+  overall_score: number;
+  dimensions: {
+    [key: string]: {
+      score: number;
+      explanation: string;
+      evidence?: string[];
+    };
+  };
 }
 
 const ComparisonResults = () => {
@@ -34,6 +53,8 @@ const ComparisonResults = () => {
   const location = useLocation();
   const [comparisonData, setComparisonData] = useState<CompanyComparison[]>([]);
   const [originalCompany, setOriginalCompany] = useState<CompanyComparison | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const query = searchParams.get("q") || "";
 
@@ -47,119 +68,105 @@ const ComparisonResults = () => {
 
   const criteriaOrder = ['jurisdiction', 'hosting', 'control', 'governance', 'news_risk'];
 
-  useEffect(() => {
-    console.log("ComparisonResults useEffect - location.state:", location.state);
-    
-    const data = location.state?.comparisonData;
-    const originalData = location.state?.originalData;
-    
-    console.log("ComparisonResults - data:", data);
-    console.log("ComparisonResults - originalData:", originalData);
-    
-    // Create mock data with default 5/10 scores if no data available
-    const createMockCriteriaScores = () => {
-      return criteriaOrder.map(criteriaId => {
-        const mapping = dimensionMapping[criteriaId as keyof typeof dimensionMapping];
-        return {
-          id: criteriaId,
-          label: mapping.label,
-          icon: mapping.icon,
-          score: 5,
-          maxScore: 10,
-          description: mapping.description,
-          why: "Default evaluation - detailed analysis pending",
-          evidence: []
-        };
-      });
-    };
-
-    const mockOriginalData = {
-      name: "AWS",
-      type: "Cloud Provider",
-      hosting: "Global (US-based)",
-      price_hint: "Pay-as-you-go pricing",
-      why_better: "",
-      links: ["https://aws.amazon.com"],
-      score: 50,
-      criteriaScores: createMockCriteriaScores()
-    };
-
-    const mockAlternatives = [
-      {
-        name: "Hetzner Cloud",
-        type: "IaaS",
-        hosting: "EU (Germany)",
-        price_hint: "from €3.49/mo",
-        why_better: "GDPR-compliant EU hosting, transparent pricing",
-        links: ["https://www.hetzner.com/cloud"],
-        score: 75,
-        criteriaScores: createMockCriteriaScores().map(criteria => ({
-          ...criteria,
-          score: criteria.id === 'jurisdiction' || criteria.id === 'hosting' ? 8 : 5,
-          why: criteria.id === 'jurisdiction' ? "German company, EU jurisdiction" : 
-               criteria.id === 'hosting' ? "EU-only data centers" : criteria.why
-        }))
-      },
-      {
-        name: "Scaleway",
-        type: "IaaS & PaaS",
-        hosting: "EU (France)",
-        price_hint: "from €2.99/mo",
-        why_better: "EU-only data centers, green energy",
-        links: ["https://www.scaleway.com"],
-        score: 80,
-        criteriaScores: createMockCriteriaScores().map(criteria => ({
-          ...criteria,
-          score: criteria.id === 'jurisdiction' || criteria.id === 'hosting' ? 9 : 5,
-          why: criteria.id === 'jurisdiction' ? "French company, EU jurisdiction" : 
-               criteria.id === 'hosting' ? "EU-only data centers with green energy" : criteria.why
-        }))
-      },
-      {
-        name: "OpenStack",
-        type: "Open-source IaaS",
-        hosting: "Self-host",
-        price_hint: "free OSS (own hardware cost)",
-        why_better: "full control, community-driven software",
-        links: ["https://www.openstack.org"],
-        score: 85,
-        criteriaScores: createMockCriteriaScores().map(criteria => ({
-          ...criteria,
-          score: criteria.id === 'control' ? 10 : criteria.id === 'jurisdiction' ? 10 : 6,
-          why: criteria.id === 'control' ? "Complete control over infrastructure and data" : 
-               criteria.id === 'jurisdiction' ? "Self-hosted, your jurisdiction" : criteria.why
-        }))
-      }
-    ];
-    
-    if (data && originalData) {
-      console.log("ComparisonResults - Processing real data...");
-      // Use real data if available
-      const reconstructedOriginal = {
-        ...originalData,
-        criteriaScores: originalData.criteriaScores.map((criteria: any) => ({
-          ...criteria,
-          icon: dimensionMapping[criteria.id as keyof typeof dimensionMapping]?.icon || Shield
-        }))
+  const fetchAlternatives = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`https://limmerja.app.n8n.cloud/webhook/alternatives?query=${query}`);
+      if (!response.ok) throw new Error('Failed to fetch alternatives');
+      const alternatives: AlternativeResponse[] = await response.json();
+      
+      // Create original company (query)
+      const original: CompanyComparison = {
+        name: query.charAt(0).toUpperCase() + query.slice(1),
+        description: `Current solution: ${query}`,
+        score: 50,
+        criteriaScores: criteriaOrder.map(criteriaId => {
+          const mapping = dimensionMapping[criteriaId as keyof typeof dimensionMapping];
+          return {
+            id: criteriaId,
+            label: mapping.label,
+            icon: mapping.icon,
+            score: 5,
+            maxScore: 10,
+            description: mapping.description,
+            why: "Default evaluation - detailed analysis pending",
+            evidence: []
+          };
+        })
       };
       
-      const reconstructedAlternatives = data.map((alt: any) => ({
-        ...alt,
-        criteriaScores: alt.criteriaScores.map((criteria: any) => ({
-          ...criteria,
-          icon: dimensionMapping[criteria.id as keyof typeof dimensionMapping]?.icon || Shield
-        }))
-      }));
+      setOriginalCompany(original);
       
-      setOriginalCompany(reconstructedOriginal);
-      setComparisonData(reconstructedAlternatives);
-    } else {
-      console.log("ComparisonResults - Using mock data with default scores...");
-      // Use mock data with default scores
-      setOriginalCompany(mockOriginalData);
-      setComparisonData(mockAlternatives);
+      // Fetch sovereignty scores for alternatives
+      const alternativesWithScores = await Promise.all(
+        alternatives.map(async (alt) => {
+          try {
+            const sovereigntyResponse = await fetch(`https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${alt.name}`);
+            if (!sovereigntyResponse.ok) throw new Error(`Failed to fetch sovereignty for ${alt.name}`);
+            const sovereignty: SovereigntyResponse = await sovereigntyResponse.json();
+            
+            const criteriaScores = criteriaOrder.map(criteriaId => {
+              const mapping = dimensionMapping[criteriaId as keyof typeof dimensionMapping];
+              const dimension = sovereignty.dimensions[criteriaId];
+              return {
+                id: criteriaId,
+                label: mapping.label,
+                icon: mapping.icon,
+                score: dimension ? Math.round(dimension.score) : 5,
+                maxScore: 10,
+                description: mapping.description,
+                why: dimension?.explanation || "No analysis available",
+                evidence: dimension?.evidence || []
+              };
+            });
+            
+            return {
+              name: alt.name,
+              description: alt.description,
+              links: [alt.website],
+              score: Math.round(sovereignty.overall_score * 10), // Convert to 0-100 scale
+              criteriaScores
+            } as CompanyComparison;
+          } catch (error) {
+            console.error(`Error fetching sovereignty for ${alt.name}:`, error);
+            // Return default data if API fails
+            return {
+              name: alt.name,
+              description: alt.description,
+              links: [alt.website],
+              score: 50,
+              criteriaScores: criteriaOrder.map(criteriaId => {
+                const mapping = dimensionMapping[criteriaId as keyof typeof dimensionMapping];
+                return {
+                  id: criteriaId,
+                  label: mapping.label,
+                  icon: mapping.icon,
+                  score: 5,
+                  maxScore: 10,
+                  description: mapping.description,
+                  why: "API unavailable - default score",
+                  evidence: []
+                };
+              })
+            } as CompanyComparison;
+          }
+        })
+      );
+      
+      setComparisonData(alternativesWithScores);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError('Failed to load comparison data');
+    } finally {
+      setLoading(false);
     }
-  }, [location.state, navigate, query]);
+  };
+
+  useEffect(() => {
+    if (query) {
+      fetchAlternatives();
+    }
+  }, [query]);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-600 dark:text-green-400";
@@ -173,11 +180,35 @@ const ComparisonResults = () => {
     return "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800";
   };
 
-  if (!originalCompany || comparisonData.length === 0) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Loading comparison...</h1>
+          <p className="text-muted-foreground">Fetching alternatives and sovereignty scores...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Error</h1>
+          <p className="text-muted-foreground">{error}</p>
+          <Button onClick={() => fetchAlternatives()} className="mt-4">Try Again</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!originalCompany || comparisonData.length === 0) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">No data available</h1>
+          <Button onClick={() => navigate(`/results?q=${query}`)} variant="outline">Back to Results</Button>
         </div>
       </div>
     );
@@ -252,9 +283,26 @@ const ComparisonResults = () => {
                         <div className="text-sm text-muted-foreground">out of 100</div>
                       </TableCell>
                     ))}
-                  </TableRow>
+                   </TableRow>
 
-                  {/* Criteria Rows */}
+                   {/* Description Row */}
+                   <TableRow>
+                     <TableCell className="font-medium">
+                       <div className="flex items-center gap-2">
+                         <FileCheck className="w-4 h-4 text-primary" />
+                         Description
+                       </div>
+                     </TableCell>
+                     {allCompanies.map((company, index) => (
+                       <TableCell key={index} className="text-center">
+                         <div className="text-sm text-muted-foreground p-2 bg-muted/20 rounded">
+                           {company.description || "No description available"}
+                         </div>
+                       </TableCell>
+                     ))}
+                   </TableRow>
+
+                   {/* Criteria Rows */}
                   {criteriaOrder.map(criteriaId => {
                     const mapping = dimensionMapping[criteriaId as keyof typeof dimensionMapping];
                     const IconComponent = mapping.icon;
