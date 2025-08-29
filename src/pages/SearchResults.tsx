@@ -492,76 +492,26 @@ const SearchResults = () => {
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div>
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Quick Info</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-muted-foreground" />
-                  <div>
-                    <div className="font-semibold">Pricing</div>
-                    <div className="text-sm text-muted-foreground">{companyData.pricing}</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 text-yellow-500" />
-                  <div>
-                    <div className="font-semibold">User Rating</div>
-                    <div className="text-sm text-muted-foreground">
-                      {companyData.userRating}/5 ({companyData.reviewCount} reviews)
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-muted-foreground" />
-                  <div>
-                    <div className="font-semibold">Company Size</div>
-                    <div className="text-sm text-muted-foreground">Enterprise</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Key Features</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {companyData.features.map((feature, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="text-sm">{feature}</span>
-                     </div>
-                   ))}
-                 </div>
-                 <div className="mt-6">
-                   <Button 
-                     onClick={fetchComparison} 
-                     disabled={isLoadingComparison}
-                     className="w-full"
-                   >
-                     {isLoadingComparison ? (
-                       "Loading Comparison..."
-                     ) : (
-                       <>
-                         <BarChart3 className="w-4 h-4 mr-2" />
-                         Compare Alternatives
-                       </>
-                     )}
-                   </Button>
-                 </div>
                </CardContent>
              </Card>
+
+             {/* Compare Button */}
+             <div className="mt-4">
+               <Button 
+                 onClick={fetchComparison} 
+                 disabled={isLoadingComparison}
+                 className="w-full"
+               >
+                 {isLoadingComparison ? (
+                   "Loading Comparison..."
+                 ) : (
+                   <>
+                     <BarChart3 className="w-4 h-4 mr-2" />
+                     Compare Alternatives
+                   </>
+                 )}
+               </Button>
+             </div>
 
              {/* Comparison Table */}
              {showComparison && (
@@ -640,6 +590,59 @@ const SearchResults = () => {
                  </CardContent>
                </Card>
              )}
+           </div>
+
+          {/* Sidebar */}
+          <div>
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Quick Info</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <div className="font-semibold">Pricing</div>
+                    <div className="text-sm text-muted-foreground">{companyData.pricing}</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-yellow-500" />
+                  <div>
+                    <div className="font-semibold">User Rating</div>
+                    <div className="text-sm text-muted-foreground">
+                      {companyData.userRating}/5 ({companyData.reviewCount} reviews)
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <div className="font-semibold">Company Size</div>
+                    <div className="text-sm text-muted-foreground">Enterprise</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Key Features</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {companyData.features.map((feature, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span className="text-sm">{feature}</span>
+                     </div>
+                   ))}
+                 </div>
+               </CardContent>
+             </Card>
+
           </div>
         </div>
       </div>
