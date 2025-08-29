@@ -56,9 +56,85 @@ const ComparisonResults = () => {
     console.log("ComparisonResults - data:", data);
     console.log("ComparisonResults - originalData:", originalData);
     
+    // Create mock data with default 5/10 scores if no data available
+    const createMockCriteriaScores = () => {
+      return criteriaOrder.map(criteriaId => {
+        const mapping = dimensionMapping[criteriaId as keyof typeof dimensionMapping];
+        return {
+          id: criteriaId,
+          label: mapping.label,
+          icon: mapping.icon,
+          score: 5,
+          maxScore: 10,
+          description: mapping.description,
+          why: "Default evaluation - detailed analysis pending",
+          evidence: []
+        };
+      });
+    };
+
+    const mockOriginalData = {
+      name: "AWS",
+      type: "Cloud Provider",
+      hosting: "Global (US-based)",
+      price_hint: "Pay-as-you-go pricing",
+      why_better: "",
+      links: ["https://aws.amazon.com"],
+      score: 50,
+      criteriaScores: createMockCriteriaScores()
+    };
+
+    const mockAlternatives = [
+      {
+        name: "Hetzner Cloud",
+        type: "IaaS",
+        hosting: "EU (Germany)",
+        price_hint: "from €3.49/mo",
+        why_better: "GDPR-compliant EU hosting, transparent pricing",
+        links: ["https://www.hetzner.com/cloud"],
+        score: 75,
+        criteriaScores: createMockCriteriaScores().map(criteria => ({
+          ...criteria,
+          score: criteria.id === 'jurisdiction' || criteria.id === 'hosting' ? 8 : 5,
+          why: criteria.id === 'jurisdiction' ? "German company, EU jurisdiction" : 
+               criteria.id === 'hosting' ? "EU-only data centers" : criteria.why
+        }))
+      },
+      {
+        name: "Scaleway",
+        type: "IaaS & PaaS",
+        hosting: "EU (France)",
+        price_hint: "from €2.99/mo",
+        why_better: "EU-only data centers, green energy",
+        links: ["https://www.scaleway.com"],
+        score: 80,
+        criteriaScores: createMockCriteriaScores().map(criteria => ({
+          ...criteria,
+          score: criteria.id === 'jurisdiction' || criteria.id === 'hosting' ? 9 : 5,
+          why: criteria.id === 'jurisdiction' ? "French company, EU jurisdiction" : 
+               criteria.id === 'hosting' ? "EU-only data centers with green energy" : criteria.why
+        }))
+      },
+      {
+        name: "OpenStack",
+        type: "Open-source IaaS",
+        hosting: "Self-host",
+        price_hint: "free OSS (own hardware cost)",
+        why_better: "full control, community-driven software",
+        links: ["https://www.openstack.org"],
+        score: 85,
+        criteriaScores: createMockCriteriaScores().map(criteria => ({
+          ...criteria,
+          score: criteria.id === 'control' ? 10 : criteria.id === 'jurisdiction' ? 10 : 6,
+          why: criteria.id === 'control' ? "Complete control over infrastructure and data" : 
+               criteria.id === 'jurisdiction' ? "Self-hosted, your jurisdiction" : criteria.why
+        }))
+      }
+    ];
+    
     if (data && originalData) {
-      console.log("ComparisonResults - Processing data...");
-      // Reconstruct the original data with icons
+      console.log("ComparisonResults - Processing real data...");
+      // Use real data if available
       const reconstructedOriginal = {
         ...originalData,
         criteriaScores: originalData.criteriaScores.map((criteria: any) => ({
@@ -67,7 +143,6 @@ const ComparisonResults = () => {
         }))
       };
       
-      // Reconstruct alternatives data with icons
       const reconstructedAlternatives = data.map((alt: any) => ({
         ...alt,
         criteriaScores: alt.criteriaScores.map((criteria: any) => ({
@@ -76,17 +151,13 @@ const ComparisonResults = () => {
         }))
       }));
       
-      console.log("ComparisonResults - Setting data:", {
-        original: reconstructedOriginal,
-        alternatives: reconstructedAlternatives
-      });
-      
       setOriginalCompany(reconstructedOriginal);
       setComparisonData(reconstructedAlternatives);
     } else {
-      console.log("ComparisonResults - No data found, redirecting...");
-      // Redirect back if no data
-      navigate(`/results?q=${query}`);
+      console.log("ComparisonResults - Using mock data with default scores...");
+      // Use mock data with default scores
+      setOriginalCompany(mockOriginalData);
+      setComparisonData(mockAlternatives);
     }
   }, [location.state, navigate, query]);
 
