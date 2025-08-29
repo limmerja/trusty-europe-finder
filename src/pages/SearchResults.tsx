@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -79,6 +79,7 @@ const SearchResults = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   
   const query = searchParams.get("q") || "";
 
@@ -148,46 +149,48 @@ const SearchResults = () => {
   };
 
   useEffect(() => {
-    // Get data from the cache/state passed from LoadingPage or make fallback request
-    const loadData = async () => {
+    // Use data passed from LoadingPage or fallback
+    const loadData = () => {
       setIsLoading(true);
 
       try {
-        // Try to fetch from n8n if not already cached
-        const url = `https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${encodeURIComponent(query)}`;
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
-        const text = await res.text();
+        // Check if we have data passed from LoadingPage
+        const responseData = location.state?.responseData;
+        
+        if (responseData) {
+          // Try to robustly extract the scoring payload from different possible shapes
+          const tryParse = (t: string) => {
+            try { return JSON.parse(t); } catch { return t; }
+          };
 
-        // Try to robustly extract the scoring payload from different possible shapes
-        const tryParse = (t: string) => {
-          try { return JSON.parse(t); } catch { return t; }
-        };
+          const raw = tryParse(responseData);
+          let scoringData: ScoringData | null = null;
 
-        const raw = tryParse(text);
-        let scoringData: ScoringData | null = null;
-
-        if (raw && typeof raw === "object" && "score" in raw) {
-          scoringData = raw as ScoringData;
-        } else if (raw && typeof raw === "object" && (raw as any).message?.content) {
-          const inner = tryParse((raw as any).message.content);
-          if (inner && typeof inner === "object" && "score" in inner) {
-            scoringData = inner as ScoringData;
+          if (raw && typeof raw === "object" && "score" in raw) {
+            scoringData = raw as ScoringData;
+          } else if (raw && typeof raw === "object" && (raw as any).message?.content) {
+            const inner = tryParse((raw as any).message.content);
+            if (inner && typeof inner === "object" && "score" in inner) {
+              scoringData = inner as ScoringData;
+            }
+          } else if (typeof raw === "string") {
+            const inner = tryParse(raw);
+            if (inner && typeof inner === "object" && "score" in inner) {
+              scoringData = inner as ScoringData;
+            }
           }
-        } else if (typeof raw === "string") {
-          const inner = tryParse(raw);
-          if (inner && typeof inner === "object" && "score" in inner) {
-            scoringData = inner as ScoringData;
+
+          if (!scoringData) {
+            throw new Error("Invalid scoring response format");
           }
-        }
 
-        if (!scoringData) {
-          throw new Error("Invalid scoring response format");
+          const parsedData = parseN8nData(scoringData);
+          setCompanyData(parsedData);
+        } else {
+          throw new Error("No data received from LoadingPage");
         }
-
-        const parsedData = parseN8nData(scoringData);
-        setCompanyData(parsedData);
       } catch (err) {
-        console.error("Failed to fetch scoring data:", err);
+        console.error("Failed to process scoring data:", err);
         // Fallback to defaults (5/10 => 50/100 per dimension)
         const fallback: ScoringData = {
           score: {
@@ -211,7 +214,7 @@ const SearchResults = () => {
     if (query) {
       loadData();
     }
-  }, [query]);
+  }, [query, location.state]);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-600 dark:text-green-400";

@@ -32,9 +32,11 @@ const LoadingPage = () => {
     const startAnalysis = async () => {
       try {
         const url = `https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${encodeURIComponent(query)}`;
-        await fetch(url, { headers: { Accept: "application/json" } });
-        // Request completed, navigate to results
-        navigate(`/results?q=${encodeURIComponent(query)}`);
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        const text = await res.text();
+        
+        // Request completed, navigate to results with data
+        navigate(`/results?q=${encodeURIComponent(query)}`, { state: { responseData: text } });
       } catch (err) {
         console.error("Analysis failed:", err);
         // Even if request fails, navigate to results (which will show fallback data)
