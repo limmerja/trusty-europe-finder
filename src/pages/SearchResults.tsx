@@ -148,11 +148,12 @@ const SearchResults = () => {
   };
 
   useEffect(() => {
-    // Fetch data from n8n workflow using the query param
+    // Get data from the cache/state passed from LoadingPage or make fallback request
     const loadData = async () => {
       setIsLoading(true);
 
       try {
+        // Try to fetch from n8n if not already cached
         const url = `https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${encodeURIComponent(query)}`;
         const res = await fetch(url, { headers: { Accept: "application/json" } });
         const text = await res.text();
@@ -186,6 +187,7 @@ const SearchResults = () => {
         const parsedData = parseN8nData(scoringData);
         setCompanyData(parsedData);
       } catch (err) {
+        console.error("Failed to fetch scoring data:", err);
         // Fallback to defaults (5/10 => 50/100 per dimension)
         const fallback: ScoringData = {
           score: {

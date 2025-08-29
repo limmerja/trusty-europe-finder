@@ -28,21 +28,32 @@ const LoadingPage = () => {
   ]);
 
   useEffect(() => {
+    // Start the n8n request immediately when loading page loads
+    const startAnalysis = async () => {
+      try {
+        const url = `https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${encodeURIComponent(query)}`;
+        await fetch(url, { headers: { Accept: "application/json" } });
+        // Request completed, navigate to results
+        navigate(`/results?q=${encodeURIComponent(query)}`);
+      } catch (err) {
+        console.error("Analysis failed:", err);
+        // Even if request fails, navigate to results (which will show fallback data)
+        navigate(`/results?q=${encodeURIComponent(query)}`);
+      }
+    };
+
+    // Start the actual request
+    startAnalysis();
+
+    // Progress animation for UI feedback
     const timer = setInterval(() => {
       setProgress(prev => {
-        const newProgress = prev + 2;
-        if (newProgress >= 100) {
-          clearInterval(timer);
-          setTimeout(() => {
-            navigate(`/results?q=${encodeURIComponent(query)}`);
-          }, 500);
-          return 100;
-        }
-        return newProgress;
+        const newProgress = prev + 1;
+        return newProgress >= 95 ? 95 : newProgress; // Cap at 95% until request completes
       });
-    }, 70); // Completes in ~3.5 seconds
+    }, 100);
 
-    // Complete checks one by one
+    // Complete checks one by one for visual feedback
     checks.forEach((check, index) => {
       setTimeout(() => {
         setChecks(prev => 
