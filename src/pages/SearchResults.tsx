@@ -94,6 +94,22 @@ const SearchResults = () => {
   const parseN8nData = (rawData: ScoringData): CompanyData => {
     const { score } = rawData;
     
+    // Compute overall if missing, using weights if provided, else equal weights
+    const keys = Object.keys(dimensionMapping);
+    const hasWeights = !!score?.weights && Object.values(score.weights).some((w) => typeof w === "number" && w > 0);
+    const overallComputed = hasWeights
+      ? Math.round(
+          keys.reduce((acc, key) => {
+            const dimScore = score.dimensions[key]?.score ?? 50; // default 50/100
+            const w = (score.weights as any)?.[key] ?? 0;
+            return acc + dimScore * w;
+          }, 0)
+        )
+      : Math.round(
+          keys.reduce((acc, key) => acc + (score.dimensions[key]?.score ?? 50), 0) / keys.length
+        );
+    const overall = typeof score?.overall === "number" ? score.overall : overallComputed;
+    
     // Create criteria scores from dimensions
     const criteriaScores: CriteriaScore[] = Object.entries(dimensionMapping).map(([key, mapping]) => {
       const dimension = score.dimensions[key];
@@ -114,7 +130,7 @@ const SearchResults = () => {
     return {
       name: query,
       logo: "🔧",
-      score: score.overall,
+      score: overall,
       headquarters: "United States",
       gdprCompliant: (score.dimensions.jurisdiction?.score || 50) >= 60,
       dataHandling: score.dimensions.jurisdiction?.why || "Assessment data not available",
@@ -132,57 +148,62 @@ const SearchResults = () => {
   };
 
   useEffect(() => {
-    // Simulate loading and API call
+    // Fetch data from n8n workflow using the query param
     const loadData = async () => {
       setIsLoading(true);
-      
-      // Simulate n8n workflow call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock n8n workflow response (based on provided format)
-      const mockN8nResponse: ScoringData = {
-        score: {
-          overall: 69,
-          weights: {
-            jurisdiction: 0.25,
-            hosting: 0.25,
-            control: 0.25,
-            governance: 0.15,
-            news_risk: 0.10
-          },
-          dimensions: {
-            jurisdiction: {
-              score: 25,
-              why: `${query} is headquartered in the United States, a non-EU country without adequacy, leading to a lower jurisdictional score.`,
-              evidence: ["https://en.wikipedia.org/wiki/" + query.replace(' ', '_')]
-            },
-            hosting: {
-              score: 75,
-              why: `${query} offers customers the option to choose data residency in multiple global regions including the EU, but defaults to US storage if no choice is made.`,
-              evidence: ["https://example.com/data-residency"]
-            },
-            control: {
-              score: 100,
-              why: `${query} benefits from strong control and security policies under a reputable parent company.`,
-              evidence: ["https://example.com/security"]
-            },
-            governance: {
-              score: 75,
-              why: `${query} publicly shares its security practices and provides regional data residency options, indicating good governance though detailed data protection agreements are not cited.`,
-              evidence: ["https://example.com/governance"]
-            },
-            news_risk: {
-              score: 50,
-              why: "There is no notable recent news risk, but given its US base and high-profile status, a moderate news risk is assigned.",
-              evidence: []
-            }
+
+      try {
+        const url = `https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${encodeURIComponent(query)}`;
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        const text = await res.text();
+
+        // Try to robustly extract the scoring payload from different possible shapes
+        const tryParse = (t: string) => {
+          try { return JSON.parse(t); } catch { return t; }
+        };
+
+        const raw = tryParse(text);
+        let scoringData: ScoringData | null = null;
+
+        if (raw && typeof raw === "object" && "score" in raw) {
+          scoringData = raw as ScoringData;
+        } else if (raw && typeof raw === "object" && (raw as any).message?.content) {
+          const inner = tryParse((raw as any).message.content);
+          if (inner && typeof inner === "object" && "score" in inner) {
+            scoringData = inner as ScoringData;
+          }
+        } else if (typeof raw === "string") {
+          const inner = tryParse(raw);
+          if (inner && typeof inner === "object" && "score" in inner) {
+            scoringData = inner as ScoringData;
           }
         }
-      };
-      
-      const parsedData = parseN8nData(mockN8nResponse);
-      setCompanyData(parsedData);
-      setIsLoading(false);
+
+        if (!scoringData) {
+          throw new Error("Invalid scoring response format");
+        }
+
+        const parsedData = parseN8nData(scoringData);
+        setCompanyData(parsedData);
+      } catch (err) {
+        // Fallback to defaults (5/10 => 50/100 per dimension)
+        const fallback: ScoringData = {
+          score: {
+            overall: 50,
+            weights: {
+              jurisdiction: 0.25,
+              hosting: 0.25,
+              control: 0.25,
+              governance: 0.15,
+              news_risk: 0.10,
+            },
+            dimensions: {}
+          }
+        };
+        setCompanyData(parseN8nData(fallback));
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     if (query) {
