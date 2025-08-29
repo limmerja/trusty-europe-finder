@@ -258,13 +258,23 @@ const SearchResults = () => {
   };
 
   const fetchComparison = async () => {
-    // Navigate to comparison loading page with original company data
+    // Navigate to comparison loading page with original company data (without React components)
+    const serializedCriteriaScores = companyData.criteriaScores.map(criteria => ({
+      id: criteria.id,
+      label: criteria.label,
+      score: criteria.score,
+      maxScore: criteria.maxScore,
+      description: criteria.description,
+      why: criteria.why,
+      evidence: criteria.evidence
+    }));
+
     navigate(`/comparison-loading?q=${query}`, {
       state: {
         originalData: {
           name: companyData.name,
           score: companyData.score,
-          criteriaScores: companyData.criteriaScores,
+          criteriaScores: serializedCriteriaScores,
           type: "Current Solution"
         }
       }

@@ -87,16 +87,48 @@ const ComparisonLoading = () => {
                 }
               }
 
+              if (scoringData) {
+                const overallScore = scoringData.score.overall || 50;
+                const criteriaScores = Object.entries({
+                  jurisdiction: { label: "Jurisdiction", description: "Company headquarters and legal jurisdiction" },
+                  hosting: { label: "Data Hosting", description: "Data storage and processing location" },
+                  control: { label: "Data Control", description: "Security measures and data access controls" },
+                  governance: { label: "Governance", description: "Privacy policies and data governance" },
+                  news_risk: { label: "News Risk", description: "Recent news and reputation risk" }
+                }).map(([key, mapping]) => {
+                  const dimension = scoringData.score.dimensions[key];
+                  const scoreValue = dimension ? Math.round(dimension.score / 10) : 5;
+                  
+                  return {
+                    id: key,
+                    label: mapping.label,
+                    score: scoreValue,
+                    maxScore: 10,
+                    description: mapping.description,
+                    why: dimension?.why,
+                    evidence: dimension?.evidence
+                  };
+                });
+
+                return {
+                  ...alt,
+                  score: overallScore,
+                  criteriaScores
+                };
+              }
+
               return {
                 ...alt,
-                scoringData
+                score: 50,
+                criteriaScores: []
               };
             } catch (error) {
               console.error(`Failed to score ${alt.name}:`, error);
               setScoringProgress(prev => ({ ...prev, [alt.name]: true }));
               return {
                 ...alt,
-                scoringData: null
+                score: 50,
+                criteriaScores: []
               };
             }
           })

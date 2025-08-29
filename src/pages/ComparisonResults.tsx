@@ -52,8 +52,26 @@ const ComparisonResults = () => {
     const originalData = location.state?.originalData;
     
     if (data && originalData) {
-      setOriginalCompany(originalData);
-      setComparisonData(data);
+      // Reconstruct the original data with icons
+      const reconstructedOriginal = {
+        ...originalData,
+        criteriaScores: originalData.criteriaScores.map((criteria: any) => ({
+          ...criteria,
+          icon: dimensionMapping[criteria.id as keyof typeof dimensionMapping]?.icon || Shield
+        }))
+      };
+      
+      // Reconstruct alternatives data with icons
+      const reconstructedAlternatives = data.map((alt: any) => ({
+        ...alt,
+        criteriaScores: alt.criteriaScores.map((criteria: any) => ({
+          ...criteria,
+          icon: dimensionMapping[criteria.id as keyof typeof dimensionMapping]?.icon || Shield
+        }))
+      }));
+      
+      setOriginalCompany(reconstructedOriginal);
+      setComparisonData(reconstructedAlternatives);
     } else {
       // Redirect back if no data
       navigate(`/results?q=${query}`);
