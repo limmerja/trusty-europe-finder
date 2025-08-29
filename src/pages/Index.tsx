@@ -67,7 +67,7 @@ const Index = () => {
                 Find European Alternatives
               </p>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Discover privacy-first European software alternatives with our comprehensive sovereignty scoring system
+                Better alternatives for your data.
               </p>
             </div>
 
