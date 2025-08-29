@@ -116,7 +116,7 @@ const Index = () => {
                 </h1>
               </div>
               <p className="text-5xl md:text-6xl font-bold text-foreground mb-4 bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                Find the Best Apps for Europe
+                Discover European Apps
               </p>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                 European alternatives that respect your privacy and data sovereignty.
