@@ -44,7 +44,7 @@ interface ScoringData {
       hosting: number;
       control: number;
       governance: number;
-      news_risk: number;
+      "lock-in-risk": number;
     };
     dimensions: {
       [key: string]: {
@@ -105,7 +105,7 @@ const SearchResults = () => {
     hosting: { label: "Data Hosting", icon: Server, description: "Data storage and processing location practices" },
     control: { label: "Data Control", icon: Shield, description: "Security measures and data access controls" },
     governance: { label: "Governance", icon: FileCheck, description: "Privacy policies and data governance practices" },
-    news_risk: { label: "News Risk", icon: AlertTriangle, description: "Recent news and reputation risk assessment" }
+    "lock-in-risk": { label: "Lock-in Risk", icon: Lock, description: "Vendor lock-in and data portability assessment" }
   };
 
   const parseN8nData = (rawData: ScoringData): CompanyData => {
@@ -222,7 +222,7 @@ const SearchResults = () => {
               hosting: 0.25,
               control: 0.25,
               governance: 0.15,
-              news_risk: 0.10,
+              "lock-in-risk": 0.10,
             },
             dimensions: {}
           }
