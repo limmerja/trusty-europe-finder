@@ -42,10 +42,10 @@ const ComparisonResults = () => {
     hosting: { label: "Data Hosting", icon: Server, description: "Data storage and processing location" },
     control: { label: "Data Control", icon: Shield, description: "Security measures and data access controls" },
     governance: { label: "Governance", icon: FileCheck, description: "Privacy policies and data governance" },
-    news_risk: { label: "News Risk", icon: AlertTriangle, description: "Recent news and reputation risk" }
+    "lock-in-risk/open-source compliance": { label: "Lock-in Risk", icon: AlertTriangle, description: "Vendor lock-in and open-source compliance" }
   };
 
-  const criteriaOrder = ['jurisdiction', 'hosting', 'control', 'governance', 'news_risk'];
+  const criteriaOrder = ['jurisdiction', 'hosting', 'control', 'governance', 'lock-in-risk/open-source compliance'];
 
   useEffect(() => {
     const data = location.state?.comparisonData;

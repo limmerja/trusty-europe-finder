@@ -44,7 +44,7 @@ interface ScoringData {
       hosting: number;
       control: number;
       governance: number;
-      news_risk: number;
+      "lock-in-risk": number;
     };
     dimensions: {
       [key: string]: {
@@ -53,6 +53,9 @@ interface ScoringData {
         evidence: string[];
       };
     };
+    rating?: number;
+    logo_url?: string;
+    pricing?: string;
   };
 }
 
@@ -83,17 +86,16 @@ interface AlternativeComparison {
   price_hint: string;
   why_better: string;
   links: string[];
-  score?: number;
-  criteriaScores?: CriteriaScore[];
 }
 
 const SearchResults = () => {
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
-  const [isLoadingComparison, setIsLoadingComparison] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [comparisonData, setComparisonData] = useState<AlternativeComparison[]>([]);
-  const [showComparison, setShowComparison] = useState(false);
+  const [isLoadingAlternatives, setIsLoadingAlternatives] = useState(false);
+  const [alternativesError, setAlternativesError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -105,79 +107,82 @@ const SearchResults = () => {
     hosting: { label: "Data Hosting", icon: Server, description: "Data storage and processing location practices" },
     control: { label: "Data Control", icon: Shield, description: "Security measures and data access controls" },
     governance: { label: "Governance", icon: FileCheck, description: "Privacy policies and data governance practices" },
-    news_risk: { label: "News Risk", icon: AlertTriangle, description: "Recent news and reputation risk assessment" }
+    "lock-in-risk": { label: "Lock-in Risk", icon: AlertTriangle, description: "Vendor lock-in and open-source compliance assessment" }
   };
 
   const parseN8nData = (rawData: ScoringData): CompanyData => {
     const { score } = rawData;
     
-    // Compute overall if missing, using weights if provided, else equal weights
-    const keys = Object.keys(dimensionMapping);
-    const hasWeights = !!score?.weights && Object.values(score.weights).some((w) => typeof w === "number" && w > 0);
-    const overallComputed = hasWeights
-      ? Math.round(
-          keys.reduce((acc, key) => {
-            const dimScore = score.dimensions[key]?.score ?? 50; // default 50/100
-            const w = (score.weights as any)?.[key] ?? 0;
-            return acc + dimScore * w;
-          }, 0)
-        )
-      : Math.round(
-          keys.reduce((acc, key) => acc + (score.dimensions[key]?.score ?? 50), 0) / keys.length
-        );
-    const overall = typeof score?.overall === "number" ? score.overall : overallComputed;
+    // Validate that we have the required score data
+    if (!score) {
+      throw new Error("No score data available in API response");
+    }
     
-    // Create criteria scores from dimensions
+    if (typeof score.overall !== "number") {
+      throw new Error("Overall score is missing from API response");
+    }
+    
+    if (!score.dimensions || Object.keys(score.dimensions).length === 0) {
+      throw new Error("No dimension scores available in API response");
+    }
+    
+    // Validate that all required dimensions are present
+    const requiredDimensions = Object.keys(dimensionMapping);
+    const missingDimensions = requiredDimensions.filter(dim => !score.dimensions[dim]);
+    if (missingDimensions.length > 0) {
+      throw new Error(`Missing dimension scores: ${missingDimensions.join(', ')}`);
+    }
+    
+    // Create criteria scores from dimensions - no defaults, use actual data
     const criteriaScores: CriteriaScore[] = Object.entries(dimensionMapping).map(([key, mapping]) => {
       const dimension = score.dimensions[key];
-      const scoreValue = dimension ? Math.round(dimension.score / 10) : 5; // Convert 0-100 to 0-10, default to 5
+      if (!dimension || typeof dimension.score !== "number") {
+        throw new Error(`Invalid or missing score for dimension: ${key}`);
+      }
       
       return {
         id: key,
         label: mapping.label,
         icon: mapping.icon,
-        score: scoreValue,
+        score: Math.round(dimension.score / 10), // Convert 0-100 to 0-10
         maxScore: 10,
         description: mapping.description,
-        why: dimension?.why,
-        evidence: dimension?.evidence
+        why: dimension.why,
+        evidence: dimension.evidence
       };
     });
+    
+    // Logo can use default if not provided
+    
+    // Pricing is optional, can be null or missing
 
     return {
       name: query,
-      logo: "🔧",
-      score: overall,
-      headquarters: "United States",
-      gdprCompliant: (score.dimensions.jurisdiction?.score || 50) >= 60,
-      dataHandling: score.dimensions.jurisdiction?.why || "Assessment data not available",
-      features: ["Team collaboration", "File sharing", "Video calls", "Integrations"],
-      pricing: "€12-25/month per user",
-      userRating: 4.2,
-      reviewCount: 1247,
+      logo: score.logo_url && score.logo_url !== null ? score.logo_url : "🛠️",
+      score: score.overall,
+      headquarters: "Unknown", // Will be derived from API data
+      gdprCompliant: score.dimensions.jurisdiction?.score >= 60,
+      dataHandling: score.dimensions.jurisdiction?.why || "No assessment data available",
+      features: [], // Remove hardcoded features
+      pricing: score.pricing || "Pricing not available",
+      userRating: score.rating || 0, // Use 0 if not provided
+      reviewCount: 0, // Remove hardcoded review count
       criteriaScores,
-      alternatives: [
-        { name: "Nextcloud", score: 95, headquarters: "Germany", pricing: "€5-15/month" },
-        { name: "Element", score: 92, headquarters: "France", pricing: "€3-8/month" },
-        { name: "Mattermost", score: 88, headquarters: "Germany", pricing: "€7-18/month" }
-      ]
+      alternatives: [] // Remove hardcoded alternatives
     };
   };
 
   useEffect(() => {
     // Use data passed from LoadingPage or fallback
-    const loadData = () => {
+    const loadData = async () => {
       setIsLoading(true);
+      console.log('SearchResults: Loading data for query:', query);
+      console.log('SearchResults: Location state:', location.state);
 
       try {
         // Check if we have data passed from LoadingPage
         const responseData = location.state?.responseData;
-        
-        // Check if we have comparison data from ComparisonLoading
-        if (location.state?.showComparison && location.state?.comparisonData) {
-          setComparisonData(location.state.comparisonData);
-          setShowComparison(true);
-        }
+        console.log('SearchResults: Response data:', responseData);
         
         if (responseData) {
           // Try to robustly extract the scoring payload from different possible shapes
@@ -207,29 +212,26 @@ const SearchResults = () => {
           }
 
           const parsedData = parseN8nData(scoringData);
+          console.log('SearchResults: Parsed company data:', parsedData);
           setCompanyData(parsedData);
         } else {
           throw new Error("No data received from LoadingPage");
         }
       } catch (err) {
-        console.error("Failed to process scoring data:", err);
-        // Fallback to defaults (5/10 => 50/100 per dimension)
-        const fallback: ScoringData = {
-          score: {
-            overall: 50,
-            weights: {
-              jurisdiction: 0.25,
-              hosting: 0.25,
-              control: 0.25,
-              governance: 0.15,
-              news_risk: 0.10,
-            },
-            dimensions: {}
-          }
-        };
-        setCompanyData(parseN8nData(fallback));
-      } finally {
+        console.error("SearchResults: Failed to process scoring data:", err);
+        // Don't use fallback data - show the error to user
+        setError(err instanceof Error ? err.message : "Failed to process scoring data");
+        setCompanyData(null);
         setIsLoading(false);
+        return; // Exit early without fetching alternatives
+      } finally {
+        console.log('SearchResults: Finished loading');
+        setIsLoading(false);
+      }
+      
+      // Automatically fetch alternatives
+      if (query) {
+        await fetchAlternatives();
       }
     };
 
@@ -257,40 +259,78 @@ const SearchResults = () => {
     return "Poor";
   };
 
-  const fetchComparison = async () => {
-    // Navigate to comparison loading page with original company data (without React components)
-    const serializedCriteriaScores = companyData.criteriaScores.map(criteria => ({
-      id: criteria.id,
-      label: criteria.label,
-      score: criteria.score,
-      maxScore: criteria.maxScore,
-      description: criteria.description,
-      why: criteria.why,
-      evidence: criteria.evidence
-    }));
-
-    navigate(`/comparison-loading?q=${query}`, {
-      state: {
-        originalData: {
-          name: companyData.name,
-          score: companyData.score,
-          criteriaScores: serializedCriteriaScores,
-          type: "Current Solution"
-        }
+  const fetchAlternatives = async () => {
+    setIsLoadingAlternatives(true);
+    setAlternativesError(null);
+    try {
+      console.log('Fetching alternatives for:', query);
+      // Create AbortController for 4-minute timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 240000);
+      
+      const response = await fetch(`https://limmerja.app.n8n.cloud/webhook/alternatives?query=${encodeURIComponent(query)}`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    });
+      
+      const text = await response.text();
+      console.log('Raw alternatives response:', text);
+      
+      let alternatives;
+      try {
+        alternatives = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Failed to parse alternatives JSON:', parseError);
+        throw new Error('Invalid JSON response from alternatives API');
+      }
+      
+      console.log('Parsed alternatives:', alternatives);
+      
+      if (Array.isArray(alternatives)) {
+        setComparisonData(alternatives);
+        setAlternativesError(null);
+      } else {
+        console.error('Alternatives response is not an array:', alternatives);
+        setComparisonData([]);
+        setAlternativesError('Invalid response format from alternatives API');
+      }
+    } catch (error) {
+      console.error("Failed to fetch alternatives:", error);
+      setComparisonData([]);
+      setAlternativesError(error instanceof Error ? error.message : 'Failed to fetch alternatives');
+    } finally {
+      setIsLoadingAlternatives(false);
+    }
   };
 
   if (isLoading) {
-    navigate("/loading", { state: { query } });
-    return null;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Loading...</h1>
+        </div>
+      </div>
+    );
   }
 
   if (!companyData) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">No data found</h1>
+        <div className="text-center max-w-md">
+          <h1 className="text-2xl font-bold mb-4">Failed to Load Data</h1>
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-800 text-sm">{error}</p>
+            </div>
+          )}
+          <p className="text-muted-foreground mb-4">
+            The API response is missing required scoring data. Please check the API response format.
+          </p>
           <Button onClick={() => navigate("/")} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Search
@@ -315,7 +355,13 @@ const SearchResults = () => {
           </Button>
           
           <div className="flex items-center gap-4 mb-6">
-            <div className="text-4xl">{companyData.logo}</div>
+            <div className="text-4xl">
+              {companyData.logo.startsWith('http') ? (
+                <img src={companyData.logo} alt={`${companyData.name} logo`} className="w-16 h-16 object-contain" />
+              ) : (
+                companyData.logo
+              )}
+            </div>
             <div>
               <h1 className="text-3xl font-bold text-foreground">{companyData.name}</h1>
               <p className="text-muted-foreground">Sovereignty Analysis Report</p>
@@ -413,138 +459,102 @@ const SearchResults = () => {
             </Card>
 
             {/* European Alternatives */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-green-600" />
-                  Recommended European Alternatives
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {companyData.alternatives.map((alt, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
-                      <div>
-                        <div className="font-semibold">{alt.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          Headquarters: {alt.headquarters}
+            {isLoadingAlternatives && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-green-600" />
+                    Finding European Alternatives
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <div className="text-lg mb-2">Searching for alternatives...</div>
+                    <div className="text-sm text-muted-foreground">This may take a few seconds</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {comparisonData.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-green-600" />
+                    European Alternatives Found
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {comparisonData.map((alt, index) => (
+                      <div key={index} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
+                        <div>
+                          <div className="font-semibold">{alt.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            Type: {alt.type}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Hosting: {alt.hosting}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Pricing: {alt.price_hint}
+                          </div>
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          Pricing: {alt.pricing}
+                        <div className="text-right">
+                          <div className="mb-2">
+                            <div className="text-sm font-medium text-green-700">Why Better:</div>
+                            <div className="text-xs text-muted-foreground max-w-48">{alt.why_better}</div>
+                          </div>
+                          <div className="space-y-1">
+                            {alt.links.map((link, linkIndex) => (
+                              <Button 
+                                key={linkIndex}
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => window.open(link, '_blank')}
+                              >
+                                Visit
+                                <ExternalLink className="w-3 h-3 ml-1" />
+                              </Button>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          {alt.score}/100
-                        </Badge>
-                        <div className="mt-2">
-                          <Button size="sm" variant="outline">
-                            Learn More
-                            <ExternalLink className="w-3 h-3 ml-1" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-               </CardContent>
-             </Card>
+                    ))}
+                  </div>
+                  
+                  {/* Score Comparison Button */}
+                  <div className="mt-6 pt-4 border-t">
+                    <Button 
+                      onClick={() => navigate(`/comparison-loading?q=${query}`, {
+                        state: {
+                          originalData: {
+                            name: companyData.name,
+                            score: companyData.score,
+                            criteriaScores: companyData.criteriaScores.map(criteria => ({
+                              id: criteria.id,
+                              label: criteria.label,
+                              score: criteria.score,
+                              maxScore: criteria.maxScore,
+                              description: criteria.description,
+                              why: criteria.why,
+                              evidence: criteria.evidence
+                            })),
+                            type: "Current Solution"
+                          }
+                        }
+                      })}
+                      className="w-full"
+                    >
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Compare Detailed Scores
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-             {/* Compare Button */}
-             <div className="mt-4">
-               <Button 
-                 onClick={fetchComparison} 
-                 disabled={isLoadingComparison}
-                 className="w-full"
-               >
-                 {isLoadingComparison ? (
-                   "Loading Comparison..."
-                 ) : (
-                   <>
-                     <BarChart3 className="w-4 h-4 mr-2" />
-                     Compare Alternatives
-                   </>
-                 )}
-               </Button>
-             </div>
 
-             {/* Comparison Table */}
-             {showComparison && (
-               <Card className="mt-6">
-                 <CardHeader>
-                   <CardTitle className="flex items-center gap-2">
-                     <BarChart3 className="w-5 h-5" />
-                     Detailed Comparison
-                   </CardTitle>
-                 </CardHeader>
-                 <CardContent>
-                   <div className="overflow-x-auto">
-                     <Table>
-                       <TableHeader>
-                         <TableRow>
-                           <TableHead>Service</TableHead>
-                           <TableHead>Overall Score</TableHead>
-                           <TableHead>Hosting</TableHead>
-                           <TableHead>Pricing</TableHead>
-                           <TableHead>Why Better</TableHead>
-                         </TableRow>
-                       </TableHeader>
-                       <TableBody>
-                         <TableRow className="bg-muted/50">
-                           <TableCell className="font-medium">
-                             {companyData.name} (Current)
-                           </TableCell>
-                           <TableCell>
-                             <Badge variant="secondary" className={getScoreColor(companyData.score)}>
-                               {companyData.score}/100
-                             </Badge>
-                           </TableCell>
-                           <TableCell>{companyData.headquarters}</TableCell>
-                           <TableCell>{companyData.pricing}</TableCell>
-                           <TableCell>-</TableCell>
-                         </TableRow>
-                         {comparisonData.map((alt, index) => (
-                           <TableRow key={index}>
-                             <TableCell className="font-medium">
-                               <div>
-                                 <div>{alt.name}</div>
-                                 <div className="text-sm text-muted-foreground">{alt.type}</div>
-                               </div>
-                             </TableCell>
-                             <TableCell>
-                               <Badge variant="secondary" className={getScoreColor(alt.score || 50)}>
-                                 {alt.score || 50}/100
-                               </Badge>
-                             </TableCell>
-                             <TableCell>{alt.hosting}</TableCell>
-                             <TableCell>{alt.price_hint}</TableCell>
-                             <TableCell className="max-w-xs">
-                               <div className="text-sm">{alt.why_better}</div>
-                               {alt.links && alt.links.length > 0 && (
-                                 <div className="mt-1">
-                                   {alt.links.map((link, linkIndex) => (
-                                     <a
-                                       key={linkIndex}
-                                       href={link}
-                                       target="_blank"
-                                       rel="noopener noreferrer"
-                                       className="inline-flex items-center text-xs text-primary hover:underline mr-2"
-                                     >
-                                       Link
-                                       <ExternalLink className="w-3 h-3 ml-1" />
-                                     </a>
-                                   ))}
-                                 </div>
-                               )}
-                             </TableCell>
-                           </TableRow>
-                         ))}
-                       </TableBody>
-                     </Table>
-                   </div>
-                 </CardContent>
-               </Card>
-             )}
            </div>
 
           {/* Sidebar */}
@@ -584,19 +594,24 @@ const SearchResults = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Key Features</CardTitle>
+                <CardTitle>European Alternatives</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {companyData.features.map((feature, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="text-sm">{feature}</span>
-                     </div>
-                   ))}
-                 </div>
-               </CardContent>
-             </Card>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Discover more European alternatives to popular software and services
+                  </p>
+                  <Button 
+                    onClick={() => window.open('https://european-alternatives.eu', '_blank')}
+                    className="w-full"
+                    variant="default"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Find EU Alternatives
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
           </div>
         </div>

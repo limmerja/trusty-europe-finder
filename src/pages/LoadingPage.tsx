@@ -19,12 +19,12 @@ const LoadingPage = () => {
   
   const [progress, setProgress] = useState(0);
   const [checks, setChecks] = useState<CheckItem[]>([
-    { id: "gdpr", label: "GDPR Compliance Check", icon: Lock, completed: false, duration: 1000 },
-    { id: "headquarters", label: "Company Headquarters Location", icon: MapPin, completed: false, duration: 1500 },
-    { id: "data", label: "Data Handling Practices", icon: Database, completed: false, duration: 2000 },
-    { id: "privacy", label: "Privacy Policy Analysis", icon: FileCheck, completed: false, duration: 2500 },
-    { id: "security", label: "Security Standards Review", icon: Shield, completed: false, duration: 3000 },
-    { id: "users", label: "User Reviews & Ratings", icon: Users, completed: false, duration: 3500 }
+    { id: "gdpr", label: "GDPR Compliance Check", icon: Lock, completed: false, duration: 8000 },
+    { id: "headquarters", label: "Company Headquarters Location", icon: MapPin, completed: false, duration: 16000 },
+    { id: "data", label: "Data Handling Practices", icon: Database, completed: false, duration: 24000 },
+    { id: "privacy", label: "Privacy Policy Analysis", icon: FileCheck, completed: false, duration: 32000 },
+    { id: "security", label: "Security Standards Review", icon: Shield, completed: false, duration: 40000 },
+    { id: "users", label: "User Reviews & Ratings", icon: Users, completed: false, duration: 48000 }
   ]);
 
   useEffect(() => {
@@ -32,7 +32,16 @@ const LoadingPage = () => {
     const startAnalysis = async () => {
       try {
         const url = `https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${encodeURIComponent(query)}`;
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        // Create AbortController for 4-minute timeout (240 seconds)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 240000);
+        
+        const res = await fetch(url, { 
+          headers: { Accept: "application/json" },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
         const text = await res.text();
         
         // Request completed, navigate to results with data
@@ -47,13 +56,13 @@ const LoadingPage = () => {
     // Start the actual request
     startAnalysis();
 
-    // Progress animation for UI feedback
+    // Progress animation for UI feedback - spread over ~60 seconds (average of 40-70s)
     const timer = setInterval(() => {
       setProgress(prev => {
-        const newProgress = prev + 1;
-        return newProgress >= 95 ? 95 : newProgress; // Cap at 95% until request completes
+        const newProgress = prev + 0.33; // Increment: 0.33% every 200ms = ~60 seconds to reach 98%
+        return newProgress >= 98 ? 98 : newProgress; // Cap at 98% until request completes
       });
-    }, 100);
+    }, 200);
 
     // Complete checks one by one for visual feedback
     checks.forEach((check, index) => {
@@ -136,7 +145,7 @@ const LoadingPage = () => {
               <Loader2 className="w-4 h-4 animate-spin" />
               <span>Processing sovereignty analysis...</span>
             </div>
-            <p>This usually takes a few seconds</p>
+            <p>This usually takes 40-70 seconds</p>
           </div>
         </CardContent>
       </Card>
