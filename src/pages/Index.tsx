@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,14 +7,58 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
+  const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      setShowSuggestions(false);
       navigate("/loading", { state: { query: searchQuery.trim() } });
     }
   };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    
+    if (value.trim()) {
+      const filtered = allSoftware.filter(software =>
+        software.toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 6);
+      setFilteredSuggestions(filtered);
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setSearchQuery(suggestion);
+    setShowSuggestions(false);
+    navigate("/loading", { state: { query: suggestion } });
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const allSoftware = [
+    "Slack", "Google Workspace", "Microsoft 365", "Zoom", "Dropbox", "Trello",
+    "Notion", "Figma", "Adobe Creative Suite", "Salesforce", "HubSpot", "Mailchimp",
+    "Spotify", "Netflix", "YouTube", "WhatsApp", "Instagram", "Facebook",
+    "Twitter", "LinkedIn", "TikTok", "Discord", "Telegram", "Signal",
+    "Shopify", "WooCommerce", "Stripe", "PayPal", "Square", "Klarna"
+  ];
 
   const popularSoftware = [
     { name: "Slack", logo: "💬" },
@@ -64,7 +108,7 @@ const Index = () => {
                 <h1 className="text-2xl font-bold text-foreground">EuroSoft</h1>
               </div>
               <p className="text-5xl md:text-6xl font-bold text-foreground mb-4 bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                Find European Alternatives
+                Discover European Apps
               </p>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                 Better alternatives for your data.
@@ -74,22 +118,40 @@ const Index = () => {
             {/* Search Bar */}
             <div className="max-w-2xl mx-auto mb-12">
               <form onSubmit={handleSearch} className="relative">
-                <div className="relative group">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                <div className="relative group" ref={searchRef}>
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 z-10" />
                   <Input
                     type="text"
                     placeholder="Enter software name or URL to check sovereignty score..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={handleInputChange}
+                    onFocus={() => searchQuery && setShowSuggestions(true)}
                     className="pl-12 pr-32 h-14 text-lg border-2 border-border focus:border-primary transition-all shadow-lg hover:shadow-xl bg-card"
                   />
                   <Button 
                     type="submit" 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-10 px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 transition-all"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-10 px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 transition-all z-10"
                     disabled={!searchQuery.trim()}
                   >
                     Check Score
                   </Button>
+                  
+                  {/* Autocomplete Suggestions */}
+                  {showSuggestions && filteredSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                      {filteredSuggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className="w-full text-left px-4 py-3 hover:bg-accent transition-colors border-b border-border last:border-b-0 flex items-center gap-2"
+                        >
+                          <Search className="w-4 h-4 text-muted-foreground" />
+                          <span>{suggestion}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </form>
             </div>
