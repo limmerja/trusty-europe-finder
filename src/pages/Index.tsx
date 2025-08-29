@@ -12,7 +12,7 @@ const Index = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      navigate("/loading", { state: { query: searchQuery.trim() } });
     }
   };
 
@@ -101,7 +101,9 @@ const Index = () => {
                 {popularSoftware.map((software) => (
                   <button
                     key={software.name}
-                    onClick={() => setSearchQuery(software.name)}
+                    onClick={() => {
+                      navigate("/loading", { state: { query: software.name } });
+                    }}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-full hover:bg-accent transition-colors text-sm"
                   >
                     <span className="text-lg">{software.logo}</span>
