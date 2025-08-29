@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   ArrowLeft, 
   Shield, 
@@ -20,7 +21,8 @@ import {
   Database,
   Server,
   Gavel,
-  AlertTriangle
+  AlertTriangle,
+  BarChart3
 } from "lucide-react";
 
 interface CriteriaScore {
@@ -74,10 +76,24 @@ interface CompanyData {
   }>;
 }
 
+interface AlternativeComparison {
+  name: string;
+  type: string;
+  hosting: string;
+  price_hint: string;
+  why_better: string;
+  links: string[];
+  score?: number;
+  criteriaScores?: CriteriaScore[];
+}
+
 const SearchResults = () => {
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
+  const [isLoadingComparison, setIsLoadingComparison] = useState(false);
+  const [comparisonData, setComparisonData] = useState<AlternativeComparison[]>([]);
+  const [showComparison, setShowComparison] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -233,6 +249,81 @@ const SearchResults = () => {
     if (score >= 60) return "Good";
     if (score >= 40) return "Fair";
     return "Poor";
+  };
+
+  const fetchComparison = async () => {
+    setIsLoadingComparison(true);
+    try {
+      // Fetch alternatives list
+      const alternativesResponse = await fetch(`https://limmerja.app.n8n.cloud/webhook/alternatives?query=${query}`);
+      const alternatives = await alternativesResponse.json();
+      
+      // Score each alternative
+      const scoredAlternatives = await Promise.all(
+        alternatives.map(async (alt: any) => {
+          try {
+            const scoreResponse = await fetch(`https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${alt.name}`);
+            const scoreData = await scoreResponse.json();
+            
+            // Parse score data similar to main company
+            let scoringData: ScoringData | null = null;
+            const tryParse = (t: string) => {
+              try { return JSON.parse(t); } catch { return t; }
+            };
+
+            const raw = tryParse(scoreData);
+            if (raw && typeof raw === "object" && "score" in raw) {
+              scoringData = raw as ScoringData;
+            } else if (raw && typeof raw === "object" && (raw as any).message?.content) {
+              const inner = tryParse((raw as any).message.content);
+              if (inner && typeof inner === "object" && "score" in inner) {
+                scoringData = inner as ScoringData;
+              }
+            }
+
+            if (scoringData) {
+              const overallScore = scoringData.score.overall || 50;
+              const criteriaScores: CriteriaScore[] = Object.entries(dimensionMapping).map(([key, mapping]) => {
+                const dimension = scoringData!.score.dimensions[key];
+                const scoreValue = dimension ? Math.round(dimension.score / 10) : 5;
+                
+                return {
+                  id: key,
+                  label: mapping.label,
+                  icon: mapping.icon,
+                  score: scoreValue,
+                  maxScore: 10,
+                  description: mapping.description,
+                  why: dimension?.why,
+                  evidence: dimension?.evidence
+                };
+              });
+
+              return {
+                ...alt,
+                score: overallScore,
+                criteriaScores
+              };
+            }
+          } catch (error) {
+            console.error(`Failed to score ${alt.name}:`, error);
+          }
+          
+          return {
+            ...alt,
+            score: 50, // Default score
+            criteriaScores: []
+          };
+        })
+      );
+
+      setComparisonData(scoredAlternatives);
+      setShowComparison(true);
+    } catch (error) {
+      console.error('Failed to fetch comparison data:', error);
+    } finally {
+      setIsLoadingComparison(false);
+    }
   };
 
   if (isLoading) {
@@ -450,11 +541,105 @@ const SearchResults = () => {
                     <div key={index} className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-600" />
                       <span className="text-sm">{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                     </div>
+                   ))}
+                 </div>
+                 <div className="mt-6">
+                   <Button 
+                     onClick={fetchComparison} 
+                     disabled={isLoadingComparison}
+                     className="w-full"
+                   >
+                     {isLoadingComparison ? (
+                       "Loading Comparison..."
+                     ) : (
+                       <>
+                         <BarChart3 className="w-4 h-4 mr-2" />
+                         Compare Alternatives
+                       </>
+                     )}
+                   </Button>
+                 </div>
+               </CardContent>
+             </Card>
+
+             {/* Comparison Table */}
+             {showComparison && (
+               <Card className="mt-6">
+                 <CardHeader>
+                   <CardTitle className="flex items-center gap-2">
+                     <BarChart3 className="w-5 h-5" />
+                     Detailed Comparison
+                   </CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                   <div className="overflow-x-auto">
+                     <Table>
+                       <TableHeader>
+                         <TableRow>
+                           <TableHead>Service</TableHead>
+                           <TableHead>Overall Score</TableHead>
+                           <TableHead>Hosting</TableHead>
+                           <TableHead>Pricing</TableHead>
+                           <TableHead>Why Better</TableHead>
+                         </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                         <TableRow className="bg-muted/50">
+                           <TableCell className="font-medium">
+                             {companyData.name} (Current)
+                           </TableCell>
+                           <TableCell>
+                             <Badge variant="secondary" className={getScoreColor(companyData.score)}>
+                               {companyData.score}/100
+                             </Badge>
+                           </TableCell>
+                           <TableCell>{companyData.headquarters}</TableCell>
+                           <TableCell>{companyData.pricing}</TableCell>
+                           <TableCell>-</TableCell>
+                         </TableRow>
+                         {comparisonData.map((alt, index) => (
+                           <TableRow key={index}>
+                             <TableCell className="font-medium">
+                               <div>
+                                 <div>{alt.name}</div>
+                                 <div className="text-sm text-muted-foreground">{alt.type}</div>
+                               </div>
+                             </TableCell>
+                             <TableCell>
+                               <Badge variant="secondary" className={getScoreColor(alt.score || 50)}>
+                                 {alt.score || 50}/100
+                               </Badge>
+                             </TableCell>
+                             <TableCell>{alt.hosting}</TableCell>
+                             <TableCell>{alt.price_hint}</TableCell>
+                             <TableCell className="max-w-xs">
+                               <div className="text-sm">{alt.why_better}</div>
+                               {alt.links && alt.links.length > 0 && (
+                                 <div className="mt-1">
+                                   {alt.links.map((link, linkIndex) => (
+                                     <a
+                                       key={linkIndex}
+                                       href={link}
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       className="inline-flex items-center text-xs text-primary hover:underline mr-2"
+                                     >
+                                       Link
+                                       <ExternalLink className="w-3 h-3 ml-1" />
+                                     </a>
+                                   ))}
+                                 </div>
+                               )}
+                             </TableCell>
+                           </TableRow>
+                         ))}
+                       </TableBody>
+                     </Table>
+                   </div>
+                 </CardContent>
+               </Card>
+             )}
           </div>
         </div>
       </div>
