@@ -105,13 +105,21 @@ const Index = () => {
                 <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center">
                   <Shield className="w-6 h-6 text-primary-foreground" />
                 </div>
-                <h1 className="text-2xl font-bold text-foreground">EuroSoft</h1>
+                <h1 className="text-2xl font-bold text-foreground">
+                  bestfor
+                  <span className="relative">
+                    <span className="text-primary">eu</span>
+                    <span className="absolute inset-0 text-primary/30 hover:text-primary/10 transition-colors duration-300 cursor-help" title="Also reads as 'bestforyou'">
+                      u
+                    </span>
+                  </span>
+                </h1>
               </div>
               <p className="text-5xl md:text-6xl font-bold text-foreground mb-4 bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                Discover European Apps
+                Find the Best Apps for Europe
               </p>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Better alternatives for your data.
+                European alternatives that respect your privacy and data sovereignty.
               </p>
             </div>
 
