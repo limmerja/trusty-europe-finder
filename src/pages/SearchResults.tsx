@@ -17,7 +17,10 @@ import {
   CheckCircle,
   XCircle,
   Lock,
-  Database
+  Database,
+  Server,
+  Gavel,
+  AlertTriangle
 } from "lucide-react";
 
 interface CriteriaScore {
@@ -27,6 +30,28 @@ interface CriteriaScore {
   score: number;
   maxScore: number;
   description: string;
+  why?: string;
+  evidence?: string[];
+}
+
+interface ScoringData {
+  score: {
+    overall: number;
+    weights: {
+      jurisdiction: number;
+      hosting: number;
+      control: number;
+      governance: number;
+      news_risk: number;
+    };
+    dimensions: {
+      [key: string]: {
+        score: number;
+        why: string;
+        evidence: string[];
+      };
+    };
+  };
 }
 
 interface CompanyData {
@@ -57,6 +82,55 @@ const SearchResults = () => {
   
   const query = searchParams.get("q") || "";
 
+  // Mapping for n8n workflow dimensions to UI components
+  const dimensionMapping = {
+    jurisdiction: { label: "Jurisdiction", icon: Gavel, description: "Company headquarters and legal jurisdiction assessment" },
+    hosting: { label: "Data Hosting", icon: Server, description: "Data storage and processing location practices" },
+    control: { label: "Data Control", icon: Shield, description: "Security measures and data access controls" },
+    governance: { label: "Governance", icon: FileCheck, description: "Privacy policies and data governance practices" },
+    news_risk: { label: "News Risk", icon: AlertTriangle, description: "Recent news and reputation risk assessment" }
+  };
+
+  const parseN8nData = (rawData: ScoringData): CompanyData => {
+    const { score } = rawData;
+    
+    // Create criteria scores from dimensions
+    const criteriaScores: CriteriaScore[] = Object.entries(dimensionMapping).map(([key, mapping]) => {
+      const dimension = score.dimensions[key];
+      const scoreValue = dimension ? Math.round(dimension.score / 10) : 5; // Convert 0-100 to 0-10, default to 5
+      
+      return {
+        id: key,
+        label: mapping.label,
+        icon: mapping.icon,
+        score: scoreValue,
+        maxScore: 10,
+        description: mapping.description,
+        why: dimension?.why,
+        evidence: dimension?.evidence
+      };
+    });
+
+    return {
+      name: query,
+      logo: "🔧",
+      score: score.overall,
+      headquarters: "United States",
+      gdprCompliant: (score.dimensions.jurisdiction?.score || 50) >= 60,
+      dataHandling: score.dimensions.jurisdiction?.why || "Assessment data not available",
+      features: ["Team collaboration", "File sharing", "Video calls", "Integrations"],
+      pricing: "€12-25/month per user",
+      userRating: 4.2,
+      reviewCount: 1247,
+      criteriaScores,
+      alternatives: [
+        { name: "Nextcloud", score: 95, headquarters: "Germany", pricing: "€5-15/month" },
+        { name: "Element", score: 92, headquarters: "France", pricing: "€3-8/month" },
+        { name: "Mattermost", score: 88, headquarters: "Germany", pricing: "€7-18/month" }
+      ]
+    };
+  };
+
   useEffect(() => {
     // Simulate loading and API call
     const loadData = async () => {
@@ -65,46 +139,49 @@ const SearchResults = () => {
       // Simulate n8n workflow call
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Generate criteria scores that match loading page criteria
-      const gdprScore = Math.floor(Math.random() * 4) + 3; // 3-6
-      const headquartersScore = query.toLowerCase().includes('europe') ? Math.floor(Math.random() * 3) + 8 : Math.floor(Math.random() * 4) + 2; // 2-5 for non-EU, 8-10 for EU
-      const dataScore = Math.floor(Math.random() * 4) + 4; // 4-7
-      const privacyScore = Math.floor(Math.random() * 4) + 3; // 3-6
-      const securityScore = Math.floor(Math.random() * 3) + 6; // 6-8
-      const userScore = Math.floor(Math.random() * 3) + 7; // 7-9
-      
-      const criteriaScores: CriteriaScore[] = [
-        { id: "gdpr", label: "GDPR Compliance", icon: Lock, score: gdprScore, maxScore: 10, description: "Assessment of GDPR compliance level" },
-        { id: "headquarters", label: "Company Headquarters", icon: MapPin, score: headquartersScore, maxScore: 10, description: "Location and jurisdiction assessment" },
-        { id: "data", label: "Data Handling", icon: Database, score: dataScore, maxScore: 10, description: "Data storage and processing practices" },
-        { id: "privacy", label: "Privacy Policy", icon: FileCheck, score: privacyScore, maxScore: 10, description: "Privacy policy transparency and completeness" },
-        { id: "security", label: "Security Standards", icon: Shield, score: securityScore, maxScore: 10, description: "Security measures and certifications" },
-        { id: "users", label: "User Trust", icon: Users, score: userScore, maxScore: 10, description: "User feedback and trust indicators" }
-      ];
-      
-      const overallScore = Math.round(criteriaScores.reduce((sum, criteria) => sum + criteria.score, 0) / criteriaScores.length * 10);
-
-      // Mock data - in reality this would come from the n8n workflow
-      const mockData: CompanyData = {
-        name: query,
-        logo: "🔧",
-        score: overallScore,
-        headquarters: "United States",
-        gdprCompliant: gdprScore >= 6,
-        dataHandling: "Data stored in US servers with limited EU compliance",
-        features: ["Team collaboration", "File sharing", "Video calls", "Integrations"],
-        pricing: "€12-25/month per user",
-        userRating: 4.2,
-        reviewCount: 1247,
-        criteriaScores,
-        alternatives: [
-          { name: "Nextcloud", score: 95, headquarters: "Germany", pricing: "€5-15/month" },
-          { name: "Element", score: 92, headquarters: "France", pricing: "€3-8/month" },
-          { name: "Mattermost", score: 88, headquarters: "Germany", pricing: "€7-18/month" }
-        ]
+      // Mock n8n workflow response (based on provided format)
+      const mockN8nResponse: ScoringData = {
+        score: {
+          overall: 69,
+          weights: {
+            jurisdiction: 0.25,
+            hosting: 0.25,
+            control: 0.25,
+            governance: 0.15,
+            news_risk: 0.10
+          },
+          dimensions: {
+            jurisdiction: {
+              score: 25,
+              why: `${query} is headquartered in the United States, a non-EU country without adequacy, leading to a lower jurisdictional score.`,
+              evidence: ["https://en.wikipedia.org/wiki/" + query.replace(' ', '_')]
+            },
+            hosting: {
+              score: 75,
+              why: `${query} offers customers the option to choose data residency in multiple global regions including the EU, but defaults to US storage if no choice is made.`,
+              evidence: ["https://example.com/data-residency"]
+            },
+            control: {
+              score: 100,
+              why: `${query} benefits from strong control and security policies under a reputable parent company.`,
+              evidence: ["https://example.com/security"]
+            },
+            governance: {
+              score: 75,
+              why: `${query} publicly shares its security practices and provides regional data residency options, indicating good governance though detailed data protection agreements are not cited.`,
+              evidence: ["https://example.com/governance"]
+            },
+            news_risk: {
+              score: 50,
+              why: "There is no notable recent news risk, but given its US base and high-profile status, a moderate news risk is assigned.",
+              evidence: []
+            }
+          }
+        }
       };
       
-      setCompanyData(mockData);
+      const parsedData = parseN8nData(mockN8nResponse);
+      setCompanyData(parsedData);
       setIsLoading(false);
     };
 
@@ -225,9 +302,30 @@ const SearchResults = () => {
                                 {getScoreLabel(criteria.score * 10)}
                               </div>
                             </div>
-                          </div>
-                          <Progress value={percentage} className="h-2" />
-                        </div>
+                           </div>
+                           <Progress value={percentage} className="h-2" />
+                           {criteria.why && (
+                             <div className="mt-3 p-3 bg-muted/50 rounded-md">
+                               <p className="text-sm text-muted-foreground">{criteria.why}</p>
+                               {criteria.evidence && criteria.evidence.length > 0 && (
+                                 <div className="mt-2 flex flex-wrap gap-1">
+                                   {criteria.evidence.map((link, idx) => (
+                                     <a
+                                       key={idx}
+                                       href={link}
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       className="inline-flex items-center text-xs text-primary hover:underline"
+                                     >
+                                       Source
+                                       <ExternalLink className="w-3 h-3 ml-1" />
+                                     </a>
+                                   ))}
+                                 </div>
+                               )}
+                             </div>
+                           )}
+                         </div>
                       );
                     })}
                   </div>
