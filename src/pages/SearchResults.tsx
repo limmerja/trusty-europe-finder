@@ -173,6 +173,12 @@ const SearchResults = () => {
         // Check if we have data passed from LoadingPage
         const responseData = location.state?.responseData;
         
+        // Check if we have comparison data from ComparisonLoading
+        if (location.state?.showComparison && location.state?.comparisonData) {
+          setComparisonData(location.state.comparisonData);
+          setShowComparison(true);
+        }
+        
         if (responseData) {
           // Try to robustly extract the scoring payload from different possible shapes
           const tryParse = (t: string) => {
@@ -252,78 +258,8 @@ const SearchResults = () => {
   };
 
   const fetchComparison = async () => {
-    setIsLoadingComparison(true);
-    try {
-      // Fetch alternatives list
-      const alternativesResponse = await fetch(`https://limmerja.app.n8n.cloud/webhook/alternatives?query=${query}`);
-      const alternatives = await alternativesResponse.json();
-      
-      // Score each alternative
-      const scoredAlternatives = await Promise.all(
-        alternatives.map(async (alt: any) => {
-          try {
-            const scoreResponse = await fetch(`https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${alt.name}`);
-            const scoreData = await scoreResponse.json();
-            
-            // Parse score data similar to main company
-            let scoringData: ScoringData | null = null;
-            const tryParse = (t: string) => {
-              try { return JSON.parse(t); } catch { return t; }
-            };
-
-            const raw = tryParse(scoreData);
-            if (raw && typeof raw === "object" && "score" in raw) {
-              scoringData = raw as ScoringData;
-            } else if (raw && typeof raw === "object" && (raw as any).message?.content) {
-              const inner = tryParse((raw as any).message.content);
-              if (inner && typeof inner === "object" && "score" in inner) {
-                scoringData = inner as ScoringData;
-              }
-            }
-
-            if (scoringData) {
-              const overallScore = scoringData.score.overall || 50;
-              const criteriaScores: CriteriaScore[] = Object.entries(dimensionMapping).map(([key, mapping]) => {
-                const dimension = scoringData!.score.dimensions[key];
-                const scoreValue = dimension ? Math.round(dimension.score / 10) : 5;
-                
-                return {
-                  id: key,
-                  label: mapping.label,
-                  icon: mapping.icon,
-                  score: scoreValue,
-                  maxScore: 10,
-                  description: mapping.description,
-                  why: dimension?.why,
-                  evidence: dimension?.evidence
-                };
-              });
-
-              return {
-                ...alt,
-                score: overallScore,
-                criteriaScores
-              };
-            }
-          } catch (error) {
-            console.error(`Failed to score ${alt.name}:`, error);
-          }
-          
-          return {
-            ...alt,
-            score: 50, // Default score
-            criteriaScores: []
-          };
-        })
-      );
-
-      setComparisonData(scoredAlternatives);
-      setShowComparison(true);
-    } catch (error) {
-      console.error('Failed to fetch comparison data:', error);
-    } finally {
-      setIsLoadingComparison(false);
-    }
+    // Navigate to comparison loading page
+    navigate(`/comparison-loading?q=${query}`);
   };
 
   if (isLoading) {

@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 import Index from "./pages/Index";
 import SearchResults from "./pages/SearchResults";
 import LoadingPage from "./pages/LoadingPage";
+import ComparisonLoading from "./pages/ComparisonLoading";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
             <Route path="/search" element={<SearchResults />} />
             <Route path="/results" element={<SearchResults />} />
             <Route path="/loading" element={<LoadingPage />} />
+            <Route path="/comparison-loading" element={<ComparisonLoading />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
