@@ -48,10 +48,16 @@ const ComparisonResults = () => {
   const criteriaOrder = ['jurisdiction', 'hosting', 'control', 'governance', 'news_risk'];
 
   useEffect(() => {
+    console.log("ComparisonResults useEffect - location.state:", location.state);
+    
     const data = location.state?.comparisonData;
     const originalData = location.state?.originalData;
     
+    console.log("ComparisonResults - data:", data);
+    console.log("ComparisonResults - originalData:", originalData);
+    
     if (data && originalData) {
+      console.log("ComparisonResults - Processing data...");
       // Reconstruct the original data with icons
       const reconstructedOriginal = {
         ...originalData,
@@ -70,9 +76,15 @@ const ComparisonResults = () => {
         }))
       }));
       
+      console.log("ComparisonResults - Setting data:", {
+        original: reconstructedOriginal,
+        alternatives: reconstructedAlternatives
+      });
+      
       setOriginalCompany(reconstructedOriginal);
       setComparisonData(reconstructedAlternatives);
     } else {
+      console.log("ComparisonResults - No data found, redirecting...");
       // Redirect back if no data
       navigate(`/results?q=${query}`);
     }
