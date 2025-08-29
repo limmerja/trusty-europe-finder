@@ -15,8 +15,19 @@ import {
   Users,
   ExternalLink,
   CheckCircle,
-  XCircle
+  XCircle,
+  Lock,
+  Database
 } from "lucide-react";
+
+interface CriteriaScore {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  score: number;
+  maxScore: number;
+  description: string;
+}
 
 interface CompanyData {
   name: string;
@@ -29,6 +40,7 @@ interface CompanyData {
   pricing: string;
   userRating: number;
   reviewCount: number;
+  criteriaScores: CriteriaScore[];
   alternatives: Array<{
     name: string;
     score: number;
@@ -53,18 +65,38 @@ const SearchResults = () => {
       // Simulate n8n workflow call
       await new Promise(resolve => setTimeout(resolve, 2000));
       
+      // Generate criteria scores that match loading page criteria
+      const gdprScore = Math.floor(Math.random() * 4) + 3; // 3-6
+      const headquartersScore = query.toLowerCase().includes('europe') ? Math.floor(Math.random() * 3) + 8 : Math.floor(Math.random() * 4) + 2; // 2-5 for non-EU, 8-10 for EU
+      const dataScore = Math.floor(Math.random() * 4) + 4; // 4-7
+      const privacyScore = Math.floor(Math.random() * 4) + 3; // 3-6
+      const securityScore = Math.floor(Math.random() * 3) + 6; // 6-8
+      const userScore = Math.floor(Math.random() * 3) + 7; // 7-9
+      
+      const criteriaScores: CriteriaScore[] = [
+        { id: "gdpr", label: "GDPR Compliance", icon: Lock, score: gdprScore, maxScore: 10, description: "Assessment of GDPR compliance level" },
+        { id: "headquarters", label: "Company Headquarters", icon: MapPin, score: headquartersScore, maxScore: 10, description: "Location and jurisdiction assessment" },
+        { id: "data", label: "Data Handling", icon: Database, score: dataScore, maxScore: 10, description: "Data storage and processing practices" },
+        { id: "privacy", label: "Privacy Policy", icon: FileCheck, score: privacyScore, maxScore: 10, description: "Privacy policy transparency and completeness" },
+        { id: "security", label: "Security Standards", icon: Shield, score: securityScore, maxScore: 10, description: "Security measures and certifications" },
+        { id: "users", label: "User Trust", icon: Users, score: userScore, maxScore: 10, description: "User feedback and trust indicators" }
+      ];
+      
+      const overallScore = Math.round(criteriaScores.reduce((sum, criteria) => sum + criteria.score, 0) / criteriaScores.length * 10);
+
       // Mock data - in reality this would come from the n8n workflow
       const mockData: CompanyData = {
         name: query,
         logo: "🔧",
-        score: Math.floor(Math.random() * 40) + 30, // 30-70 range for demo
+        score: overallScore,
         headquarters: "United States",
-        gdprCompliant: Math.random() > 0.5,
+        gdprCompliant: gdprScore >= 6,
         dataHandling: "Data stored in US servers with limited EU compliance",
         features: ["Team collaboration", "File sharing", "Video calls", "Integrations"],
         pricing: "€12-25/month per user",
         userRating: 4.2,
         reviewCount: 1247,
+        criteriaScores,
         alternatives: [
           { name: "Nextcloud", score: 95, headquarters: "Germany", pricing: "€5-15/month" },
           { name: "Element", score: 92, headquarters: "France", pricing: "€3-8/month" },
@@ -82,9 +114,15 @@ const SearchResults = () => {
   }, [query]);
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600";
-    if (score >= 60) return "text-yellow-600";
-    return "text-red-600";
+    if (score >= 80) return "text-green-600 dark:text-green-400";
+    if (score >= 60) return "text-yellow-600 dark:text-yellow-400";
+    return "text-red-600 dark:text-red-400";
+  };
+
+  const getScoreBgColor = (score: number) => {
+    if (score >= 80) return "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800";
+    if (score >= 60) return "bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800";
+    return "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800";
   };
 
   const getScoreLabel = (score: number) => {
@@ -137,7 +175,7 @@ const SearchResults = () => {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Score Card */}
+            {/* Main Score Card */}
           <div className="lg:col-span-2">
             <Card className="mb-6">
               <CardHeader>
@@ -157,38 +195,48 @@ const SearchResults = () => {
                   <Progress value={companyData.score} className="h-3" />
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-muted/50 rounded-lg">
-                    <MapPin className="w-8 h-8 mx-auto mb-2 text-primary" />
-                    <div className="font-semibold">Headquarters</div>
-                    <div className="text-sm text-muted-foreground">{companyData.headquarters}</div>
-                  </div>
-                  
-                  <div className="text-center p-4 bg-muted/50 rounded-lg">
-                    <div className="w-8 h-8 mx-auto mb-2 flex items-center justify-center">
-                      {companyData.gdprCompliant ? (
-                        <CheckCircle className="w-8 h-8 text-green-600" />
-                      ) : (
-                        <XCircle className="w-8 h-8 text-red-600" />
-                      )}
-                    </div>
-                    <div className="font-semibold">GDPR Compliance</div>
-                    <div className="text-sm text-muted-foreground">
-                      {companyData.gdprCompliant ? "Compliant" : "Limited"}
-                    </div>
-                  </div>
-                  
-                  <div className="text-center p-4 bg-muted/50 rounded-lg">
-                    <FileCheck className="w-8 h-8 mx-auto mb-2 text-primary" />
-                    <div className="font-semibold">Data Handling</div>
-                    <div className="text-sm text-muted-foreground">Analyzed</div>
+                <Separator className="my-6" />
+
+                {/* Detailed Criteria Scores */}
+                <div>
+                  <h3 className="font-semibold mb-4">Detailed Analysis by Criteria</h3>
+                  <div className="grid gap-4">
+                    {companyData.criteriaScores.map((criteria) => {
+                      const IconComponent = criteria.icon;
+                      const percentage = (criteria.score / criteria.maxScore) * 100;
+                      return (
+                        <div
+                          key={criteria.id}
+                          className={`p-4 rounded-lg border transition-all ${getScoreBgColor(criteria.score * 10)}`}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <IconComponent className="w-5 h-5 text-primary" />
+                              <div>
+                                <div className="font-semibold">{criteria.label}</div>
+                                <div className="text-sm text-muted-foreground">{criteria.description}</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`text-2xl font-bold ${getScoreColor(criteria.score * 10)}`}>
+                                {criteria.score}/{criteria.maxScore}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {getScoreLabel(criteria.score * 10)}
+                              </div>
+                            </div>
+                          </div>
+                          <Progress value={percentage} className="h-2" />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
                 <Separator className="my-6" />
 
                 <div>
-                  <h3 className="font-semibold mb-3">Data Handling Assessment</h3>
+                  <h3 className="font-semibold mb-3">Overall Assessment</h3>
                   <p className="text-muted-foreground">{companyData.dataHandling}</p>
                 </div>
               </CardContent>
