@@ -31,18 +31,22 @@ interface CompanyComparison {
 
 interface AlternativeResponse {
   name: string;
-  description: string;
-  website: string;
+  type: string;
+  hosting: string;
+  price_hint: string;
+  why_better: string;
+  links: string[];
 }
 
 interface SovereigntyResponse {
-  company: string;
-  overall_score: number;
-  dimensions: {
-    [key: string]: {
-      score: number;
-      explanation: string;
-      evidence?: string[];
+  score: {
+    overall: number;
+    dimensions: {
+      [key: string]: {
+        score: number;
+        why: string;
+        evidence?: string[];
+      };
     };
   };
 }
@@ -73,7 +77,8 @@ const ComparisonResults = () => {
       setLoading(true);
       const response = await fetch(`https://limmerja.app.n8n.cloud/webhook/alternatives?query=${query}`);
       if (!response.ok) throw new Error('Failed to fetch alternatives');
-      const alternatives: AlternativeResponse[] = await response.json();
+      const rawData = await response.json();
+      const alternatives: AlternativeResponse[] = JSON.parse(rawData.message.content);
       
       // Create original company (query)
       const original: CompanyComparison = {
@@ -103,37 +108,42 @@ const ComparisonResults = () => {
           try {
             const sovereigntyResponse = await fetch(`https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${alt.name}`);
             if (!sovereigntyResponse.ok) throw new Error(`Failed to fetch sovereignty for ${alt.name}`);
-            const sovereignty: SovereigntyResponse = await sovereigntyResponse.json();
+            const rawSovereigntyData = await sovereigntyResponse.json();
+            const sovereignty = JSON.parse(rawSovereigntyData.message.content);
             
             const criteriaScores = criteriaOrder.map(criteriaId => {
               const mapping = dimensionMapping[criteriaId as keyof typeof dimensionMapping];
-              const dimension = sovereignty.dimensions[criteriaId];
+              const dimension = sovereignty.score?.dimensions?.[criteriaId];
               return {
                 id: criteriaId,
                 label: mapping.label,
                 icon: mapping.icon,
-                score: dimension ? Math.round(dimension.score) : 5,
+                score: dimension ? Math.round(dimension.score * 10) : 5, // Convert 0-1 to 0-10
                 maxScore: 10,
                 description: mapping.description,
-                why: dimension?.explanation || "No analysis available",
+                why: dimension?.why || "No analysis available",
                 evidence: dimension?.evidence || []
               };
             });
             
             return {
               name: alt.name,
-              description: alt.description,
-              links: [alt.website],
-              score: Math.round(sovereignty.overall_score * 10), // Convert to 0-100 scale
+              description: alt.why_better,
+              type: alt.type,
+              hosting: alt.hosting,
+              price_hint: alt.price_hint,
+              why_better: alt.why_better,
+              links: alt.links,
+              score: Math.round(sovereignty.score?.overall || 50), // Already in 0-100 scale
               criteriaScores
             } as CompanyComparison;
           } catch (error) {
             console.error(`Error fetching sovereignty for ${alt.name}:`, error);
             // Return default data if API fails
-            return {
-              name: alt.name,
-              description: alt.description,
-              links: [alt.website],
+             return {
+               name: alt.name,
+               description: alt.why_better,
+               links: alt.links,
               score: 50,
               criteriaScores: criteriaOrder.map(criteriaId => {
                 const mapping = dimensionMapping[criteriaId as keyof typeof dimensionMapping];
