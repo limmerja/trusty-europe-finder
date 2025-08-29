@@ -148,6 +148,11 @@ const ComparisonLoading = () => {
           type: "Current Solution"
         };
 
+        console.log("Navigating to comparison results with data:", {
+          comparisonData: scoredAlternatives.length,
+          originalData: originalData.name
+        });
+
         setTimeout(() => {
           navigate(`/comparison-results?q=${query}`, { 
             state: { 
@@ -159,8 +164,24 @@ const ComparisonLoading = () => {
 
       } catch (error) {
         console.error("Comparison failed:", error);
-        // Navigate back to results without comparison data
-        navigate(`/results?q=${query}`);
+        // Create minimal fallback data and still show comparison page
+        const fallbackAlternatives = [];
+        const originalData = location.state?.originalData || {
+          name: query,
+          score: 50,
+          criteriaScores: [],
+          type: "Current Solution"
+        };
+        
+        setTimeout(() => {
+          navigate(`/comparison-results?q=${query}`, { 
+            state: { 
+              comparisonData: fallbackAlternatives,
+              originalData,
+              error: "Failed to fetch comparison data"
+            } 
+          });
+        }, 500);
       }
     };
 
