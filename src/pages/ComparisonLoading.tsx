@@ -29,7 +29,7 @@ const ComparisonLoading = () => {
     { id: "hosting", label: "Data Hosting", icon: Server, description: "Data storage and processing location" },
     { id: "control", label: "Data Control", icon: Shield, description: "Security measures and data access controls" },
     { id: "governance", label: "Governance", icon: FileCheck, description: "Privacy policies and data governance" },
-    { id: "lock-in-risk/open-source compliance", label: "Lock-in Risk", icon: AlertTriangle, description: "Vendor lock-in and open-source compliance" }
+    { id: "news_risk", label: "News Risk", icon: AlertTriangle, description: "Recent news and reputation risk" }
   ];
 
   const steps = [
@@ -46,15 +46,7 @@ const ComparisonLoading = () => {
         setCurrentStep(0);
         setProgress(10);
         
-        // Create AbortController for 4-minute timeout
-        const altController = new AbortController();
-        const altTimeoutId = setTimeout(() => altController.abort(), 240000);
-        
-        const alternativesResponse = await fetch(`https://limmerja.app.n8n.cloud/webhook/alternatives?query=${query}`, {
-          signal: altController.signal
-        });
-        
-        clearTimeout(altTimeoutId);
+        const alternativesResponse = await fetch(`https://limmerja.app.n8n.cloud/webhook/alternatives?query=${query}`);
         const alternativesData = await alternativesResponse.json();
         setAlternatives(alternativesData);
         setProgress(25);
@@ -73,15 +65,7 @@ const ComparisonLoading = () => {
             try {
               setScoringProgress(prev => ({ ...prev, [alt.name]: false }));
               
-              // Create AbortController for 4-minute timeout
-              const scoreController = new AbortController();
-              const scoreTimeoutId = setTimeout(() => scoreController.abort(), 240000);
-              
-              const scoreResponse = await fetch(`https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${alt.name}`, {
-                signal: scoreController.signal
-              });
-              
-              clearTimeout(scoreTimeoutId);
+              const scoreResponse = await fetch(`https://limmerja.app.n8n.cloud/webhook/sovereignty?query=${alt.name}`);
               const scoreData = await scoreResponse.json();
               
               setScoringProgress(prev => ({ ...prev, [alt.name]: true }));
@@ -110,7 +94,7 @@ const ComparisonLoading = () => {
                   hosting: { label: "Data Hosting", description: "Data storage and processing location" },
                   control: { label: "Data Control", description: "Security measures and data access controls" },
                   governance: { label: "Governance", description: "Privacy policies and data governance" },
-                  "lock-in-risk/open-source compliance": { label: "Lock-in Risk", description: "Vendor lock-in and open-source compliance" }
+                  news_risk: { label: "News Risk", description: "Recent news and reputation risk" }
                 }).map(([key, mapping]) => {
                   const dimension = scoringData.score.dimensions[key];
                   const scoreValue = dimension ? Math.round(dimension.score / 10) : 5;

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, ExternalLink, Shield, Server, FileCheck, Gavel, Lock } from "lucide-react";
+import { ArrowLeft, ExternalLink, Shield, Server, FileCheck, Gavel, AlertTriangle } from "lucide-react";
 
 interface CriteriaScore {
   id: string;
@@ -42,10 +42,10 @@ const ComparisonResults = () => {
     hosting: { label: "Data Hosting", icon: Server, description: "Data storage and processing location" },
     control: { label: "Data Control", icon: Shield, description: "Security measures and data access controls" },
     governance: { label: "Governance", icon: FileCheck, description: "Privacy policies and data governance" },
-    "lock-in-risk/open-source compliance": { label: "Lock-in Risk", icon: AlertTriangle, description: "Vendor lock-in and open-source compliance" }
+    news_risk: { label: "News Risk", icon: AlertTriangle, description: "Recent news and reputation risk" }
   };
 
-  const criteriaOrder = ['jurisdiction', 'hosting', 'control', 'governance', 'lock-in-risk/open-source compliance'];
+  const criteriaOrder = ['jurisdiction', 'hosting', 'control', 'governance', 'news_risk'];
 
   useEffect(() => {
     console.log("ComparisonResults useEffect - location.state:", location.state);
